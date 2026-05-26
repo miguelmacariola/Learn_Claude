@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<!-- 
+  DepEd ICTS - AI Prompt Engineering & Claude Guide Courseware
+  Developed by: UI/UX Certified Developer
+  Description: A fully standalone, single-file HTML web application.
+  Features: Offline capability, LocalStorage state management, rule-based prompt scoring, 
+            role-specific dynamic content, and an integrated help guide.
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DepEd ICTS | AI Prompting Course</title>
+    
+    <style>
+        /* ==========================================================================
+           CSS VARIABLES (ADJUST COLORS AND FONTS HERE)
+           These variables control the entire look and feel of the app.
+           ========================================================================== */
+        :root {
+            /* Primary Brand Colors (DepEd inspired professional tones) */
+            --primary-color: #003366;      /* Deep Navy Blue - Header, primary buttons */
+            --primary-hover: #002244;      /* Darker Navy - Hover state */
+            --secondary-color: #008080;    /* Teal/Cyan - Accents, secondary buttons */
+            --secondary-hover: #006666;    /* Darker Teal - Hover state */
+            
+            /* Background & Surface Colors */
+            --bg-body: #f4f6f8;            /* Light gray-blue for the main background */
+            --bg-surface: #ffffff;         /* Pure white for content cards */
+            --bg-sidebar: #1e293b;         /* Dark slate for the sidebar */
+            
+            /* Text Colors */
+            --text-main: #334155;          /* Dark slate for main body text (better readability than pure black) */
+            --text-heading: #0f172a;       /* Almost black for headings */
+            --text-light: #f8fafc;         /* White text for dark backgrounds */
+            --text-muted: #64748b;         /* Muted gray for secondary text */
+            
+            /* UI Elements */
+            --border-color: #e2e8f0;       /* Light border color for cards and dividers */
+            --success-color: #10b981;      /* Green for success/correct answers */
+            --error-color: #ef4444;        /* Red for errors/incorrect answers */
+            --warning-color: #f59e0b;      /* Orange for warnings (e.g., data privacy) */
+            
+            /* Typography (Uses system fonts for zero dependency/offline capability) */
+            --font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+            --border-radius: 8px;          /* Standard corner rounding */
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+            --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+            
+            /* Layout Settings */
+            --header-height: 64px;
+            --sidebar-width: 280px;
+        }
+
+        /* ==========================================================================
+           RESET & GLOBAL STYLES
+           ========================================================================== */
+        * {
+            box-sizing: border-box; /* Ensures padding doesn't affect width */
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden; /* Prevents body scroll, we scroll specific areas */
+        }
+
+        h1, h2, h3, h4 {
+            color: var(--text-heading);
+            margin-bottom: 1rem;
+            line-height: 1.2;
+        }
+
+        p { margin-bottom: 1rem; }
+        
+        ul, ol { margin-bottom: 1rem; padding-left: 1.5rem; }
+        li { margin-bottom: 0.5rem; }
+
+        /* ==========================================================================
+           LAYOUT: HEADER
+           ========================================================================== */
+        header {
+            background-color: var(--primary-color);
+            color: var(--text-light);
+            height: var(--header-height);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            box-shadow: var(--shadow-md);
+            z-index: 10;
+        }
+
+        .header-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            font-size: 1.2rem;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        /* Help Button ("?") */
+        .btn-help {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-help:hover {
+            background-color: white;
+            color: var(--primary-color);
+        }
+
+        /* Progress Bar in Header */
+        .progress-container {
+            width: 200px;
+            background-color: rgba(255,255,255,0.2);
+            border-radius: 10px;
+            height: 8px;
+            overflow: hidden;
+            margin-right: 10px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background-color: var(--secondary-color);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* ==========================================================================
+           LAYOUT: MAIN WRAPPER (SIDEBAR + CONTENT)
+           ========================================================================== */
+        .app-body {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--bg-sidebar);
+            color: var(--text-light);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .nav-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            border-left: 4px solid transparent;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.95rem;
+            color: #cbd5e1;
+        }
+
+        .nav-item:hover:not(.locked) {
+            background-color: rgba(255,255,255,0.05);
+        }
+
+        .nav-item.active {
+            background-color: rgba(255,255,255,0.1);
+            border-left-color: var(--secondary-color);
+            color: white;
+            font-weight: 600;
+        }
+
+        .nav-item.locked {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .nav-icon { width: 16px; height: 16px; fill: currentColor; }
+
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .content-card {
+            background: var(--bg-surface);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-sm);
+            width: 100%;
+            max-width: 800px;
+            padding: 40px;
+            margin-bottom: 40px;
+        }
+
+        /* ==========================================================================
+           UI COMPONENTS (Buttons, Forms, Alerts)
+           ========================================================================== */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+        .btn-primary:disabled { background-color: #94a3b8; cursor: not-allowed; }
+
+        .btn-secondary { background-color: var(--secondary-color); color: white; }
+        .btn-secondary:hover { background-color: var(--secondary-hover); }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+        }
+        .btn-outline:hover { background: #f1f5f9; }
+
+        /* Form Inputs */
+        .form-group { margin-bottom: 20px; }
+        .form-label { display: block; margin-bottom: 8px; font-weight: 500; }
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            font-family: inherit;
+            font-size: 1rem;
+        }
+        .form-control:focus { outline: 2px solid var(--secondary-color); }
+        textarea.form-control { resize: vertical; min-height: 100px; }
+
+        /* Footer Controls (Next/Prev) */
+        .content-footer {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 800px;
+            margin-top: auto;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* Alert/Callout Boxes */
+        .alert {
+            padding: 15px;
+            border-radius: var(--border-radius);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: flex-start;
+        }
+        .alert-warning { background-color: #fffbeb; border-left: 4px solid var(--warning-color); color: #92400e; }
+        .alert-info { background-color: #eff6ff; border-left: 4px solid #3b82f6; color: #1e40af; }
+
+        /* Radio Buttons for Quiz */
+        .quiz-option {
+            display: block;
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .quiz-option:hover { background-color: #f8fafc; }
+        .quiz-option input { margin-right: 10px; }
+        .quiz-option.correct { border-color: var(--success-color); background-color: #ecfdf5; }
+        .quiz-option.wrong { border-color: var(--error-color); background-color: #fef2f2; }
+
+        /* ==========================================================================
+           MODALS (Overlays for Help and Messages)
+           ========================================================================== */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 100;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        
+        .modal-content {
+            background: var(--bg-surface);
+            border-radius: var(--border-radius);
+            width: 90%; max-width: 600px;
+            padding: 30px;
+            box-shadow: var(--shadow-md);
+            position: relative;
+            max-height: 90vh; overflow-y: auto;
+        }
+
+        .modal-close {
+            position: absolute; top: 15px; right: 15px;
+            background: none; border: none; font-size: 1.5rem;
+            cursor: pointer; color: var(--text-muted);
+        }
+
+        /* Certificate Styling */
+        .certificate {
+            border: 10px solid var(--primary-color);
+            padding: 40px;
+            text-align: center;
+            background: #fff;
+            position: relative;
+        }
+        .certificate::before {
+            content: '';
+            position: absolute; top: 5px; left: 5px; right: 5px; bottom: 5px;
+            border: 2px solid var(--secondary-color);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .app-body { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; max-height: 200px; border-right: none; border-bottom: 1px solid var(--border-color); }
+            .main-content { padding: 20px; }
+            .content-card { padding: 20px; }
+            .header-controls { display: none; } /* Hide progress bar on mobile header to save space */
+            .btn-help { display: flex !important; } 
+        }
+
+        /* SVG Icons Utility */
+        .icon-svg { width: 24px; height: 24px; fill: currentColor; }
+    </style>
+</head>
+<body>
+
+    <!-- APP HEADER -->
+    <header>
+        <div class="header-logo">
+            <!-- Simple SVG Logo for DepEd/Government feel -->
+            <svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 3L1 9L4 10.63V17.5C4 18.33 4.67 19 5.5 19H18.5C19.33 19 20 18.33 20 17.5V10.63L23 9L12 3ZM12 5.17L19.46 8.5L12 11.83L4.54 8.5L12 5.17Z"/></svg>
+            DepEd ICTS AI Platform
+        </div>
+        <div class="header-controls">
+            <div class="progress-container" title="Course Progress">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <!-- Interactive Help Trigger -->
+            <button class="btn-help" onclick="toggleModal('helpModal')" title="User Guide & Help">?</button>
+        </div>
+    </header>
+
+    <!-- MAIN APPLICATION BODY -->
+    <div class="app-body">
+        
+        <!-- SIDEBAR NAVIGATION -->
+        <aside class="sidebar" id="sidebarNav">
+            <!-- Sidebar content is injected dynamically by JavaScript based on state -->
+        </aside>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="main-content">
+            <div class="content-card" id="mainContentCard">
+                <!-- Content injected dynamically by JS -->
+            </div>
+            
+            <!-- NEXT/PREV CONTROLS -->
+            <div class="content-footer" id="contentFooter">
+                <button class="btn btn-outline" id="btnPrev" onclick="app.prevStep()">&#8592; Back</button>
+                <button class="btn btn-primary" id="btnNext" onclick="app.nextStep()">Next &#8594;</button>
+            </div>
+        </main>
+    </div>
+
+    <!-- ==========================================================================
+         MODALS 
+         ========================================================================== -->
+    
+    <!-- Help / User Guide Modal -->
+    <div class="modal-overlay" id="helpModal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="toggleModal('helpModal')">&times;</button>
+            <h2>📘 User Guide & Help</h2>
+            <p>Welcome to the DepEd ICTS AI Prompt Engineering Courseware. This tool is designed to help you master AI communication safely and effectively.</p>
+            
+            <h3>How to use this platform:</h3>
+            <ul>
+                <li><strong>Navigation:</strong> Use the "Next" and "Back" buttons at the bottom. The sidebar shows your overall progress.</li>
+                <li><strong>Sequential Learning:</strong> You must read the current page or complete the current quiz before you can proceed to the next module. Locked modules have a padlock icon.</li>
+                <li><strong>Auto-Save:</strong> Your progress is saved automatically. If you close this window and return later, you will resume exactly where you left off.</li>
+                <li><strong>Role Specificity:</strong> The examples provided in the later modules will adapt based on the role you select during Onboarding.</li>
+                <li><strong>Offline Capability:</strong> This application runs entirely on your local machine. No sensitive data is transmitted externally.</li>
+            </ul>
+            <div class="alert alert-info">
+                <strong>Need technical support?</strong> Contact the System Administrator at ICTS.
+            </div>
+            <div style="text-align: right; margin-top: 20px;">
+                <button class="btn btn-primary" onclick="toggleModal('helpModal')">Understood</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Alert Modal (Replaces ugly browser alerts) -->
+    <div class="modal-overlay" id="alertModal">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <div id="alertIcon" style="font-size: 3rem; margin-bottom: 10px;">⚠️</div>
+            <h3 id="alertTitle">Notice</h3>
+            <p id="alertMessage">Message goes here.</p>
+            <button class="btn btn-primary" style="margin-top: 20px;" onclick="toggleModal('alertModal')">OK</button>
+        </div>
+    </div>
+
+    <!-- ==========================================================================
+         JAVASCRIPT APPLICATION LOGIC
+         ========================================================================== -->
+    <script>
+        /* DATA DEFINITIONS 
+           ----------------
+           Role-specific content blocks injected into Module 1.5 and 2.6.
+           To update roles or examples, modify these objects.
+        */
+        const roleData = {
+            "Leadership": {
+                m1_example: "<strong>Role:</strong> You are the ICTS Director.<br><strong>Task:</strong> Draft a 2-paragraph memo summarizing the Q3 IT Infrastructure report for the Undersecretary.<br><strong>Context:</strong> We need budget approval for network upgrades.<br><strong>Format:</strong> Professional tone, bullet points for key metrics.",
+                m2_usecases: "<ul><li>Summarizing lengthy DepEd policy documents to extract strategic impacts.</li><li>Drafting empathetic and professional communications to regional directors.</li><li>Brainstorming strategic roadmaps for digital transformation initiatives.</li></ul>"
+            },
+            "Developer": {
+                m1_example: "<strong>Role:</strong> You are a Senior Developer.<br><strong>Task:</strong> Review this Javascript snippet (insert code) and identify memory leaks.<br><strong>Context:</strong> This script runs on the central DepEd portal and is causing server crashes.<br><strong>Format:</strong> Provide corrected code block followed by a brief explanation.",
+                m2_usecases: "<ul><li>Generating boilerplate code or HTML structures.</li><li>Explaining complex or legacy codebases.</li><li>Assisting in writing comprehensive software documentation and API specs.</li></ul>"
+            },
+            "Office Admin": {
+                m1_example: "<strong>Role:</strong> You are an Executive Assistant.<br><strong>Task:</strong> Draft an email to all ICTS staff about the upcoming server maintenance.<br><strong>Context:</strong> Maintenance is on Friday 10 PM to 2 AM. Systems will be down.<br><strong>Format:</strong> Clear, concise email format with a bolded 'Action Required' section.",
+                m2_usecases: "<ul><li>Drafting professional emails and meeting minutes from rough notes.</li><li>Creating templates for recurring office memos.</li><li>Organizing messy schedule data into clean tables.</li></ul>"
+            },
+            "Researcher": {
+                m1_example: "<strong>Role:</strong> You are a Data Analyst.<br><strong>Task:</strong> Summarize the findings of these three educational technology papers (insert text).<br><strong>Context:</strong> We are evaluating tablets for remote learning.<br><strong>Format:</strong> A comparative matrix table highlighting Pros, Cons, and Cost.",
+                m2_usecases: "<ul><li>Summarizing lengthy literature and academic papers quickly.</li><li>Formatting raw survey text data into structured JSON or CSV.</li><li>Generating literature review outlines based on specific research questions.</li></ul>"
+            },
+            "Procurement Lead": {
+                m1_example: "<strong>Role:</strong> You are a Procurement Officer.<br><strong>Task:</strong> Draft a Request for Information (RFI) for cloud storage providers.<br><strong>Context:</strong> We need to migrate 50TB of archival data securely.<br><strong>Format:</strong> Standard RFI structure with Introduction, Requirements, and Vendor Questionnaire.",
+                m2_usecases: "<ul><li>Drafting vendor comparison matrices based on feature lists.</li><li>Generating initial drafts of technical requirements for bidding documents.</li><li>Summarizing complex licensing terms into plain English.</li></ul>"
+            },
+            "Project Manager": {
+                m1_example: "<strong>Role:</strong> You are an IT Project Manager.<br><strong>Task:</strong> Create a risk mitigation plan for the new DepEd Email Migration project.<br><strong>Context:</strong> Moving 100,000 users. Key risks are data loss and user confusion.<br><strong>Format:</strong> A table with Risk, Probability, Impact, and Mitigation Strategy.",
+                m2_usecases: "<ul><li>Drafting project charters and scope statements from meeting notes.</li><li>Generating timeline suggestions or Gantt chart structures.</li><li>Creating standardized status report templates.</li></ul>"
+            },
+            "System Admin": {
+                m1_example: "<strong>Role:</strong> You are a Linux Systems Administrator.<br><strong>Task:</strong> Write a bash script to backup the /var/www directory to an AWS S3 bucket.<br><strong>Context:</strong> Needs to run nightly via cron and log output to /var/log/backup.log.<br><strong>Format:</strong> Commented code block only.",
+                m2_usecases: "<ul><li>Writing or debugging bash, python, or powershell scripts.</li><li>Analyzing sanitized error logs (ensure IPs/names are removed) to find the root cause of crashes.</li><li>Generating syntax for complex firewall rules or regex patterns.</li></ul>"
+            }
+        };
+
+        /* COURSE STEPS DEFINITION
+           -----------------------
+           This array dictates the flow of the application. 
+           type: 'content' (HTML string), 'quiz' (logic rendered), 'form' (interactive).
+        */
+        const courseSteps = [
+            { 
+                id: 0, title: "Onboarding", module: "Intro",
+                content: `
+                    <h2>Welcome to AI Prompt Engineering</h2>
+                    <p>This course will teach you how to effectively communicate with AI tools like Claude to improve your productivity at DepEd ICTS.</p>
+                    <p>To personalize your experience, please tell us a bit about yourself.</p>
+                    <div class="form-group">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" id="inpName" class="form-control" placeholder="Juan Dela Cruz">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Your Role</label>
+                        <select id="inpRole" class="form-control">
+                            <option value="">-- Select a Role --</option>
+                            <option value="Leadership">Leadership / Management</option>
+                            <option value="Developer">Software Developer</option>
+                            <option value="System Admin">System/Network Administrator</option>
+                            <option value="Project Manager">Project Manager</option>
+                            <option value="Procurement Lead">Procurement / BAC</option>
+                            <option value="Researcher">Researcher / Data Analyst</option>
+                            <option value="Office Admin">Office Administration</option>
+                        </select>
+                    </div>
+                `,
+                validate: () => {
+                    const name = document.getElementById('inpName').value.trim();
+                    const role = document.getElementById('inpRole').value;
+                    if(!name || !role) return "Please enter your name and select a role.";
+                    app.state.userName = name;
+                    app.state.userRole = role;
+                    return true;
+                }
+            },
+            // MODULE 1
+            {
+                id: 1, title: "1.1 What is a prompt?", module: "Module 1",
+                content: `
+                    <h2>1.1 What is a prompt?</h2>
+                    <p>A <strong>prompt</strong> is simply the text instruction you give to an Artificial Intelligence (like Claude, ChatGPT, or Gemini).</p>
+                    <p>Think of the AI as a highly capable but very literal intern. If you give a vague instruction like "make a report", you will get a generic, potentially useless report.</p>
+                    <p>Prompting is the skill of writing clear, structured instructions to get exactly the output you need.</p>
+                `
+            },
+            {
+                id: 2, title: "1.2 Why better prompts = better results", module: "Module 1",
+                content: `
+                    <h2>1.2 Garbage In, Garbage Out</h2>
+                    <p>AI models do not read minds. They predict the next best word based on your input.</p>
+                    <div style="display:flex; gap: 20px; margin-top:20px;">
+                        <div style="flex:1; padding: 15px; border: 1px solid var(--error-color); border-radius: 8px;">
+                            <h4 style="color: var(--error-color);">Bad Prompt</h4>
+                            <p><em>"Fix this text: The quick brown fox jumps over the lazy dog but then he fell."</em></p>
+                            <p><small>Result: AI just corrects grammar. No tone change.</small></p>
+                        </div>
+                        <div style="flex:1; padding: 15px; border: 1px solid var(--success-color); border-radius: 8px;">
+                            <h4 style="color: var(--success-color);">Good Prompt</h4>
+                            <p><em>"Rewrite this sentence to be highly professional and suitable for a DepEd official memo. Focus on clarity."</em></p>
+                            <p><small>Result: "The swift brown fox leapt over the dormant canine, subsequently experiencing a fall."</small></p>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                id: 3, title: "1.3 Anatomy of a Good Prompt", module: "Module 1",
+                content: `
+                    <h2>1.3 The R.C.T.F.C. Framework</h2>
+                    <p>A professional prompt contains up to 5 elements:</p>
+                    <ul>
+                        <li><strong>Role:</strong> Who is the AI acting as? (e.g., "Act as a Senior Network Engineer.")</li>
+                        <li><strong>Context:</strong> What is the background? (e.g., "We are migrating DepEd servers to the cloud.")</li>
+                        <li><strong>Task:</strong> What exactly needs to be done? (e.g., "Write a migration checklist.")</li>
+                        <li><strong>Format:</strong> How should it look? (e.g., "Output as a Markdown table.")</li>
+                        <li><strong>Constraints:</strong> What are the rules? (e.g., "Keep it under 500 words. Do not use jargon.")</li>
+                    </ul>
+                `
+            },
+            {
+                id: 4, title: "1.4 Prompt Techniques", module: "Module 1",
+                content: `
+                    <h2>1.4 Advanced Techniques</h2>
+                    <p><strong>1. Zero-Shot Prompting:</strong> Asking a question directly with no examples.<br><em>"Translate 'Hello' to Tagalog."</em></p>
+                    <p><strong>2. Few-Shot Prompting:</strong> Providing a few examples to train the AI's pattern recognition.<br>
+                    <em>"Format these dates:<br>Input: 01/02/2023 -> Output: Jan 2, 2023<br>Input: 12/05/2023 -> Output: ?"</em></p>
+                    <p><strong>3. Chain of Thought:</strong> Asking the AI to explain its reasoning step-by-step. This drastically reduces errors in logic and math.<br>
+                    <em>"Explain your thinking step-by-step before giving the final answer."</em></p>
+                `
+            },
+            {
+                id: 5, title: "1.5 Prompting for Your Role", module: "Module 1",
+                dynamicContent: () => `
+                    <h2>1.5 Tailored for You (${app.state.userRole})</h2>
+                    <p>Since you selected <strong>${app.state.userRole}</strong>, here is how a perfect prompt looks in your daily work:</p>
+                    <div style="background: #e2e8f0; padding: 20px; border-radius: 8px; font-family: monospace; font-size: 0.9rem;">
+                        ${roleData[app.state.userRole].m1_example}
+                    </div>
+                    <p style="margin-top:20px;">Notice how it clearly defines the Role, Task, Context, and Format!</p>
+                `
+            },
+            {
+                id: 6, title: "Module 1 Quiz", module: "Module 1",
+                type: "quiz",
+                quizData: {
+                    questions: [
+                        { q: "What does the 'R' in the RCTFC prompt framework stand for?", options: ["Read", "Role", "Reason", "Respond"], answer: 1 },
+                        { q: "Which prompting technique involves giving the AI examples before asking for the final output?", options: ["Zero-shot", "Chain of thought", "Few-shot", "Blank-shot"], answer: 2 }
+                    ]
+                }
+            },
+            // MODULE 2
+            {
+                id: 7, title: "2.1 What is Claude?", module: "Module 2",
+                content: `
+                    <h2>2.1 Meet Claude (by Anthropic)</h2>
+                    <p>Claude is a next-generation AI assistant known for being highly secure, helpful, and honest.</p>
+                    <p><strong>Why Claude over others?</strong><br>
+                    While ChatGPT is highly creative, Claude is often preferred for government and corporate work because of its strong "Constitutional AI" training, which prioritizes safety, refusal to generate harmful content, and excellent document analysis capabilities.</p>
+                `
+            },
+            {
+                id: 8, title: "2.2 Free vs Paid Limits", module: "Module 2",
+                content: `
+                    <h2>2.2 Claude Free Tier Limitations</h2>
+                    <p>If you are using the free version of Claude (Claude 3 Sonnet), keep in mind:</p>
+                    <ul>
+                        <li><strong>Message Limits:</strong> You have a limited number of messages per day. It resets every few hours.</li>
+                        <li><strong>Context Window:</strong> It remembers the conversation, but very long chats use up your limits faster.</li>
+                        <li><strong>Tip:</strong> For new topics, always start a <strong>New Chat</strong>. This saves your limit and prevents the AI from getting confused by old context.</li>
+                    </ul>
+                `
+            },
+            {
+                id: 9, title: "2.3 What Claude CAN Do", module: "Module 2",
+                content: `
+                    <h2>2.3 Claude's Superpowers</h2>
+                    <ul>
+                        <li>📝 <strong>Writing & Summarizing:</strong> Generating drafts, rewriting for tone, summarizing 50-page PDFs.</li>
+                        <li>💻 <strong>Coding & Logic:</strong> Writing scripts, debugging errors, formatting JSON/CSV.</li>
+                        <li>🧠 <strong>Brainstorming:</strong> Generating lists of ideas, interview questions, or strategic plans.</li>
+                        <li>📊 <strong>Formatting:</strong> Turning messy notes into clean Markdown tables.</li>
+                    </ul>
+                `
+            },
+            {
+                id: 10, title: "2.4 CRITICAL: What Claude CANNOT Do", module: "Module 2",
+                content: `
+                    <h2>2.4 Security & Data Privacy</h2>
+                    <div class="alert alert-warning">
+                        <strong>STOP! DO NOT UPLOAD CONFIDENTIAL DATA.</strong>
+                    </div>
+                    <p>As DepEd employees, you handle sensitive data. <strong>Never</strong> input the following into free AI tools:</p>
+                    <ul>
+                        <li>Personally Identifiable Information (PII) of students or staff (Names, LRNs, addresses, salaries).</li>
+                        <li>Unreleased internal memorandums, passwords, or API keys.</li>
+                        <li>Proprietary network configurations or secure bidding documents.</li>
+                    </ul>
+                    <p><strong>Rule of thumb:</strong> If you wouldn't post it on Facebook, don't paste it into a free AI tool.</p>
+                `
+            },
+            {
+                id: 11, title: "2.5 Claude for Your Role", module: "Module 2",
+                dynamicContent: () => `
+                    <h2>2.5 Claude Use Cases for ${app.state.userRole}s</h2>
+                    <p>Here are three high-value ways you can use Claude today:</p>
+                    ${roleData[app.state.userRole].m2_usecases}
+                `
+            },
+            {
+                id: 12, title: "Module 2 Quiz", module: "Module 2",
+                type: "quiz",
+                quizData: {
+                    questions: [
+                        { q: "What should you do when changing to a completely new topic in Claude?", options: ["Keep using the same chat to save space", "Start a New Chat", "Type 'Reset'", "Close the browser"], answer: 1 },
+                        { q: "Is it acceptable to upload a spreadsheet containing Student LRNs and Grades to summarize data?", options: ["Yes, if it saves time", "No, this is a severe violation of Data Privacy"], answer: 1 }
+                    ]
+                }
+            },
+            // MODULE 3: Final Assessment
+            {
+                id: 13, title: "Final Challenge", module: "Module 3",
+                type: "prompt_eval",
+                content: `
+                    <h2>Module 3: Final Prompting Challenge</h2>
+                    <p>Write a prompt based on your role (<strong><span id="evalRoleText"></span></strong>). Include a Role, Context, Task, and Format.</p>
+                    <textarea id="finalPromptInput" class="form-control" placeholder="Type your prompt here..." style="min-height: 150px;"></textarea>
+                    <button class="btn btn-primary" style="margin-top:15px;" onclick="app.evaluatePrompt()">Score My Prompt</button>
+                    <div id="evalResult" style="margin-top: 20px;"></div>
+                `
+            },
+            {
+                id: 14, title: "Certificate of Completion", module: "Completion",
+                dynamicContent: () => `
+                    <div class="certificate">
+                        <h1 style="color: var(--primary-color);">Certificate of Completion</h1>
+                        <p>This is to certify that</p>
+                        <h2 style="font-size: 2.5rem; text-decoration: underline; margin: 20px 0;">${app.state.userName}</h2>
+                        <p>serving as <strong>${app.state.userRole}</strong></p>
+                        <p>has successfully completed the DepEd ICTS course:</p>
+                        <h3>AI Prompt Engineering & Claude Foundations</h3>
+                        <p style="margin-top: 40px; font-size: 0.9rem; color: var(--text-muted);">
+                            Date Completed: ${new Date().toLocaleDateString()}<br>
+                            Validation Code: DEPED-AI-${Math.floor(Math.random()*10000)}
+                        </p>
+                        <button class="btn btn-secondary" style="margin-top:30px;" onclick="window.print()">Print / Save as PDF</button>
+                    </div>
+                `
+            }
+        ];
+
+        /*
+           MAIN APPLICATION CONTROLLER (OOP Pattern)
+           -----------------------------------------
+           Handles state management, UI rendering, and navigation.
+        */
+        const app = {
+            state: {
+                userName: "",
+                userRole: "",
+                currentStep: 0,
+                highestStep: 0, // Tracks how far the user has unlocked
+                quizScores: {}
+            },
+
+            // Initialization function called on page load
+            init: function() {
+                this.loadState();
+                this.renderSidebar();
+                this.renderApp();
+            },
+
+            // Load saved progress from LocalStorage
+            loadState: function() {
+                const saved = localStorage.getItem('deped_prompt_course');
+                if(saved) {
+                    try {
+                        this.state = JSON.parse(saved);
+                    } catch(e) { console.error("Could not parse save data"); }
+                }
+            },
+
+            // Save current progress to LocalStorage
+            saveState: function() {
+                localStorage.setItem('deped_prompt_course', JSON.stringify(this.state));
+                this.renderSidebar(); // Update locks visually
+                this.updateProgressBar();
+            },
+
+            // Update the top progress bar width
+            updateProgressBar: function() {
+                const total = courseSteps.length - 1;
+                const percentage = (this.state.highestStep / total) * 100;
+                document.getElementById('progressBar').style.width = percentage + '%';
+            },
+
+            // Render the left sidebar navigation
+            renderSidebar: function() {
+                const nav = document.getElementById('sidebarNav');
+                nav.innerHTML = '<div class="sidebar-header">Course Outline</div>';
+                
+                courseSteps.forEach((step, index) => {
+                    const isLocked = index > this.state.highestStep;
+                    const isActive = index === this.state.currentStep;
+                    
+                    // Create nav item
+                    const div = document.createElement('div');
+                    div.className = `nav-item ${isLocked ? 'locked' : ''} ${isActive ? 'active' : ''}`;
+                    
+                    // Add SVG Icons based on state
+                    let iconSVG = '';
+                    if (isLocked) {
+                        iconSVG = `<svg class="nav-icon" viewBox="0 0 24 24"><path d="M18 8H17V6C17 3.24 14.76 1 12 1C9.24 1 7 3.24 7 6V8H6C4.9 8 4 8.9 4 10V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V10C20 8.9 19.1 8 18 8ZM9 6C9 4.34 10.34 3 12 3C13.66 3 15 4.34 15 6V8H9V6ZM18 20H6V10H18V20Z"/></svg>`;
+                    } else if (index < this.state.highestStep) {
+                        iconSVG = `<svg class="nav-icon" style="color:var(--success-color);" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12L3.41 13.41L9 19L21 7L19.59 5.59L9 16.17Z"/></svg>`;
+                    } else {
+                        iconSVG = `<svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM10 17L5 12L6.41 10.59L10 14.17L17.59 6.58L19 8L10 17Z"/></svg>`;
+                    }
+
+                    div.innerHTML = `${iconSVG} <span>${step.title}</span>`;
+                    
+                    // Click event to navigate if unlocked
+                    div.onclick = () => {
+                        if(!isLocked) this.goToStep(index);
+                    };
+                    nav.appendChild(div);
+                });
+            },
+
+            // Render the main content area based on current step
+            renderApp: function() {
+                const step = courseSteps[this.state.currentStep];
+                const container = document.getElementById('mainContentCard');
+                
+                // Clear previous content
+                container.innerHTML = '';
+
+                // Handle different view types
+                if (step.type === 'quiz') {
+                    this.renderQuiz(step, container);
+                } else if (step.type === 'prompt_eval') {
+                    container.innerHTML = step.content;
+                    // Inject Role into text
+                    setTimeout(()=> {
+                        if(document.getElementById('evalRoleText')) {
+                            document.getElementById('evalRoleText').innerText = this.state.userRole;
+                        }
+                    }, 50);
+                } else {
+                    // Standard content or Dynamic content
+                    if(step.dynamicContent) {
+                        container.innerHTML = step.dynamicContent();
+                    } else {
+                        container.innerHTML = step.content;
+                    }
+                    
+                    // If Onboarding, pre-fill values if they exist
+                    if (step.id === 0) {
+                        setTimeout(() => {
+                            if(this.state.userName) document.getElementById('inpName').value = this.state.userName;
+                            if(this.state.userRole) document.getElementById('inpRole').value = this.state.userRole;
+                        }, 50);
+                    }
+                }
+
+                // Update Footer Buttons
+                document.getElementById('btnPrev').style.visibility = this.state.currentStep === 0 ? 'hidden' : 'visible';
+                
+                const btnNext = document.getElementById('btnNext');
+                if (this.state.currentStep === courseSteps.length - 1) {
+                    btnNext.style.display = 'none'; // Hide next on certificate page
+                } else {
+                    btnNext.style.display = 'inline-flex';
+                    // If it's a quiz or eval step that hasn't been passed, disable "Next"
+                    // We handle unlocking via code.
+                }
+
+                this.updateProgressBar();
+                // Ensure scroll jumps to top of content
+                document.querySelector('.main-content').scrollTop = 0;
+            },
+
+            // Quiz UI Renderer
+            renderQuiz: function(step, container) {
+                let html = `<h2>${step.title}</h2><p>Answer the questions below to proceed.</p>`;
+                
+                step.quizData.questions.forEach((q, qIndex) => {
+                    html += `<div class="form-group" style="margin-top:20px;">
+                                <label class="form-label"><strong>Q${qIndex + 1}:</strong> ${q.q}</label>
+                                <div id="opts_${step.id}_${qIndex}">`;
+                    
+                    q.options.forEach((opt, oIndex) => {
+                        html += `<label class="quiz-option" id="lbl_${step.id}_${qIndex}_${oIndex}">
+                                    <input type="radio" name="q_${step.id}_${qIndex}" value="${oIndex}">
+                                    ${opt}
+                                 </label>`;
+                    });
+                    html += `</div></div>`;
+                });
+
+                html += `<button class="btn btn-primary" onclick="app.submitQuiz(${step.id})">Submit Answers</button>`;
+                html += `<div id="quizResult_${step.id}" style="margin-top:15px; font-weight:bold;"></div>`;
+                container.innerHTML = html;
+            },
+
+            // Logic to evaluate standard quiz multiple choice
+            submitQuiz: function(stepId) {
+                const step = courseSteps.find(s => s.id === stepId);
+                let allCorrect = true;
+
+                step.quizData.questions.forEach((q, qIndex) => {
+                    const selected = document.querySelector(`input[name="q_${stepId}_${qIndex}"]:checked`);
+                    const optionsDiv = document.getElementById(`opts_${stepId}_${qIndex}`);
+                    
+                    // Reset styling
+                    optionsDiv.querySelectorAll('.quiz-option').forEach(el => {
+                        el.classList.remove('correct', 'wrong');
+                    });
+
+                    if (!selected) {
+                        allCorrect = false;
+                        return;
+                    }
+
+                    const val = parseInt(selected.value);
+                    const lbl = document.getElementById(`lbl_${stepId}_${qIndex}_${val}`);
+
+                    if (val === q.answer) {
+                        lbl.classList.add('correct');
+                    } else {
+                        lbl.classList.add('wrong');
+                        allCorrect = false;
+                        // highlight correct one
+                        document.getElementById(`lbl_${stepId}_${qIndex}_${q.answer}`).classList.add('correct');
+                    }
+                });
+
+                const resDiv = document.getElementById(`quizResult_${stepId}`);
+                if (allCorrect) {
+                    resDiv.innerHTML = `<span style="color:var(--success-color);">Excellent! All correct. You may proceed.</span>`;
+                    this.unlockNext();
+                } else {
+                    resDiv.innerHTML = `<span style="color:var(--error-color);">Some answers are incorrect. Review the corrections above, then click Next if you understand.</span>`;
+                    // For learning purposes, we let them proceed after seeing mistakes.
+                    this.unlockNext();
+                }
+            },
+
+            // Rule-based logic to evaluate the final prompt assignment (NO API USED)
+            evaluatePrompt: function() {
+                const text = document.getElementById('finalPromptInput').value.trim();
+                const resDiv = document.getElementById('evalResult');
+                
+                if(text.length < 20) {
+                    resDiv.innerHTML = `<div class="alert alert-warning">Prompt is too short. Please provide more detail.</div>`;
+                    return;
+                }
+
+                let score = 0;
+                let feedback = "<ul>";
+
+                // Rule 1: Length/Detail
+                if (text.length > 80) { score += 25; feedback += "<li style='color:green'>✓ Good amount of detail provided.</li>"; }
+                else { feedback += "<li style='color:orange'>! Prompt is a bit brief. Add more context.</li>"; }
+
+                // Rule 2: Role definition (regex check)
+                if (/(act as|role|you are|imagine you are|as a)/i.test(text)) {
+                    score += 25; feedback += "<li style='color:green'>✓ Role defined clearly.</li>";
+                } else { feedback += "<li style='color:red'>✗ Missing Role. Try adding 'Act as a [Role]'.</li>"; }
+
+                // Rule 3: Format constraints
+                if (/(format|table|list|bullet|markdown|paragraph|JSON|CSV|matrix)/i.test(text)) {
+                    score += 25; feedback += "<li style='color:green'>✓ Format specified.</li>";
+                } else { feedback += "<li style='color:red'>✗ Missing Format. Tell Claude exactly how the output should look.</li>"; }
+
+                // Rule 4: Task/Action verbs
+                if (/(write|draft|summarize|create|generate|analyze|review|explain)/i.test(text)) {
+                    score += 25; feedback += "<li style='color:green'>✓ Action/Task is clear.</li>";
+                } else { feedback += "<li style='color:orange'>! Task verb could be clearer (e.g., use 'Draft', 'Summarize').</li>"; }
+
+                feedback += "</ul>";
+
+                let finalHtml = `<h3>Score: ${score}/100</h3>${feedback}`;
+
+                if (score >= 75) {
+                    finalHtml += `<div class="alert alert-info" style="margin-top:15px; border-left-color: var(--success-color)">Great job! Your prompt structure is solid. You may proceed.</div>`;
+                    this.unlockNext();
+                } else {
+                    finalHtml += `<div class="alert alert-warning" style="margin-top:15px;">Your prompt needs structural improvement. Try to include a Role and a Format constraint, then score again.</div>`;
+                }
+
+                resDiv.innerHTML = finalHtml;
+            },
+
+            // Navigation Helpers
+            unlockNext: function() {
+                if (this.state.highestStep <= this.state.currentStep) {
+                    this.state.highestStep = this.state.currentStep + 1;
+                    this.saveState();
+                }
+            },
+
+            nextStep: function() {
+                const step = courseSteps[this.state.currentStep];
+                
+                // Step validation (e.g. Onboarding form)
+                if (step.validate) {
+                    const result = step.validate();
+                    if (result !== true) {
+                        customAlert("Required", result);
+                        return;
+                    }
+                }
+
+                // If it's a quiz or eval and hasn't been unlocked by passing logic
+                if ((step.type === 'quiz' || step.type === 'prompt_eval') && this.state.highestStep <= this.state.currentStep) {
+                    customAlert("Action Required", "Please complete the activity on this page to proceed.");
+                    return;
+                }
+
+                // Standard proceed
+                this.unlockNext(); // ensure unlocked
+                if (this.state.currentStep < courseSteps.length - 1) {
+                    this.state.currentStep++;
+                    this.saveState();
+                    this.renderApp();
+                }
+            },
+
+            prevStep: function() {
+                if (this.state.currentStep > 0) {
+                    this.state.currentStep--;
+                    this.renderApp();
+                    this.renderSidebar();
+                }
+            },
+
+            goToStep: function(index) {
+                if (index <= this.state.highestStep) {
+                    this.state.currentStep = index;
+                    this.renderApp();
+                    this.renderSidebar();
+                }
+            }
+        };
+
+        /* UTILITY FUNCTIONS
+           ----------------- 
+        */
+
+        // Modal toggler
+        function toggleModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal.classList.contains('active')) {
+                modal.classList.remove('active');
+            } else {
+                modal.classList.add('active');
+            }
+        }
+
+        // Custom alert function (avoids blocking browser alerts)
+        function customAlert(title, message) {
+            document.getElementById('alertTitle').innerText = title;
+            document.getElementById('alertMessage').innerText = message;
+            toggleModal('alertModal');
+        }
+
+        // Initialize application on DOM content loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            app.init();
+        });
+
+    </script>
+</body>
+</html>
